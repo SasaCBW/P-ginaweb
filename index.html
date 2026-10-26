@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferramenta Interativa de Estudo</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f4ff;
+            margin: 0;
+            padding: 20px;
+            color: #222;
+        }
+
+        .container {
+            max-width: 750px;
+            margin: 30px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px #0001;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #3454d1;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            resize: vertical;
+            font-size: 16px;
+        }
+
+        button {
+            background: #3454d1;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px 3px;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #233ca5;
+        }
+
+        .card {
+            background: #f5f7ff;
+            padding: 18px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .question {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #feedback {
+            font-weight: bold;
+            margin-top: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .option {
+            display: block;
+            margin: 10px 0;
+        }
+
+        #answer {
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📚 Ferramenta de Estudo</h1>
+    <p>Crie resumos, estude com flashcards e teste seus conhecimentos!</p>
+
+    <div class="card">
+        <h2>📝 Criar resumo</h2>
+        <textarea id="studyText" placeholder="Cole ou digite seu conteúdo de estudo..."></textarea>
+        <button onclick="createSummary()">Gerar resumo</button>
+        <div id="summary"></div>
+    </div>
+
+    <div class="card">
+        <h2>🗂️ Flashcards</h2>
+        <input id="questionInput" placeholder="Digite uma pergunta" style="width:100%;padding:10px;margin-bottom:10px;">
+        <input id="answerInput" placeholder="Digite a resposta" style="width:100%;padding:10px;">
+        <button onclick="addFlashcard()">Adicionar cartão</button>
+        <div id="flashcardArea"></div>
+    </div>
+
+    <div class="card">
+        <h2>🧠 Quiz de estudo</h2>
+        <p id="quizProgress"></p>
+        <p class="question" id="quizQuestion"></p>
+        <div id="quizOptions"></div>
+        <p id="feedback"></p>
+        <button onclick="nextQuestion()" id="nextButton">Próxima pergunta</button>
+        <p id="score"></p>
+    </div>
+
+    <footer>Projeto educacional desenvolvido com HTML, CSS e JavaScript.</footer>
+</div>
+
+<script>
+    function createSummary() {
+        const text = document.getElementById("studyText").value.trim();
+        const output = document.getElementById("summary");
+
+        if (!text) {
+            output.textContent = "Digite um texto para gerar o resumo.";
+            return;
+        }
+
+        const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+        const words = text.toLowerCase().match(/\b[\p{L}\p{N}]+\b/gu) || [];
+        const stopwords = new Set([
+            "para", "como", "mais", "muito", "sobre", "quando",
+            "onde", "porque", "entre", "também", "isso", "essa",
+            "esse", "uma", "uns", "umas", "que", "com", "sem",
+            "por", "dos", "das", "nos", "nas", "aos", "a",
+            "o", "os", "as", "de", "do", "da", "em", "no",
+            "na", "e", "ou", "um", "se", "é", "ao", "foi"
+        ]);
+
+        const frequency = {};
+
+        words.forEach(word => {
+            if (word.length > 2 && !stopwords.has(word)) {
+                frequency[word] = (frequency[word] || 0) + 1;
+            }
+        });
+
+        const keywords = Object.entries(frequency)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(item => item[0]);
+
+        const ranked = sentences
+            .map((sentence, index) => {
+                const sentenceWords = sentence.toLowerCase()
+                    .match(/\b[\p{L}\p{N}]+\b/gu) || [];
+
+                const points = sentenceWords.reduce(
+                    (sum, word) => sum + (frequency[word] || 0), 0
+                );
+
+                return { sentence: sentence.trim(), points, index };
+            })
+            .sort((a, b) => b.points - a.points || a.index - b.index);
+
+        const summary = ranked
+            .slice(0, Math.max(1, Math.ceil(sentences.length / 3)))
+            .sort((a, b) => a.index - b.index)
+            .map(item => item.sentence)
+            .join(" ");
+
+        output.innerHTML = `
+            <h3>Resumo</h3>
+            <p>${escapeHTML(summary)}</p>
+            <h3>Palavras-chave</h3>
+            <p>${keywords.map(escapeHTML).join(", ") || "Nenhuma palavra encontrada."}</p>
+        `;
+    }
+
+    function escapeHTML(text) {
+        return text.replace(/[&<>"']/g, char => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        })[char]);
+    }
+
+    let flashcards = [];
+    let currentCard = 0;
+    let showingAnswer = false;
+
+    function addFlashcard() {
+        const question = document.getElementById("questionInput").value.trim();
+        const answer = document.getElementById("answerInput").value.trim();
+
+        if (!question || !answer) {
+            alert("Preencha a pergunta e a resposta!");
+            return;
+        }
+
+        flashcards.push({ question, answer });
+        document.getElementById("questionInput").value = "";
+        document.getElementById("answerInput").value = "";
+        currentCard = flashcards.length - 1;
+        showingAnswer = false;
+        showFlashcard();
+    }
+
+    function showFlashcard() {
+        const area = document.getElementById("flashcardArea");
+
+        if (!flashcards.length) {
+            area.innerHTML = "<p>Nenhum cartão criado ainda.</p>";
+            return;
+        }
+
+        const card = flashcards[currentCard];
+
+        area.innerHTML = `
+            <h3>Cartão ${currentCard + 1} de ${flashcards.length}</h3>
+            <p>${escapeHTML(showingAnswer ? card.answer : card.question)}</p>
+            <button onclick="toggleAnswer()">Mostrar resposta</button>
+            <button onclick="previousCard()">Anterior</button>
+            <button onclick="nextCard()">Próximo</button>
+        `;
+    }
+
+    function toggleAnswer() {
+        showingAnswer = !showingAnswer;
+        showFlashcard();
+    }
+
+    function previousCard() {
+        currentCard = (currentCard - 1 + flashcards.length) % flashcards.length;
+        showingAnswer = false;
+        showFlashcard();
+    }
+
+    function nextCard() {
+        currentCard = (currentCard + 1) % flashcards.length;
+        showingAnswer = false;
+        showFlashcard();
+    }
+
+    const quiz = [
+        {
+            question: "Qual linguagem estrutura o conteúdo de uma página web?",
+            options: ["HTML", "Python", "SQL", "Excel"],
+            correct: 0
+        },
+        {
+            question: "Qual tecnologia é usada para estilizar páginas web?",
+            options: ["CSS", "Java", "Photoshop", "Word"],
+            correct: 0
+        },
+        {
+            question: "Qual linguagem permite adicionar interatividade a uma página?",
+            options: ["HTML apenas", "CSS apenas", "JavaScript", "XML"],
+            correct: 2
+        },
+        {
+            question: "Qual é uma boa técnica de estudo?",
+            options: [
+                "Nunca revisar",
+                "Estudar sem pausas",
+                "Revisar e praticar",
+                "Ler sem atenção"
+            ],
+            correct: 2
+        }
+    ];
+
+    let questionIndex = 0;
+    let points = 0;
+    let answered = false;
+
+    function showQuestion() {
+        const question = quiz[questionIndex];
+        document.getElementById("quizProgress").textContent =
+            `Pergunta ${questionIndex + 1} de ${quiz.length}`;
+
+        document.getElementById("quizQuestion").textContent = question.question;
+        document.getElementById("feedback").textContent = "";
+        document.getElementById("nextButton").textContent =
+            questionIndex === quiz.length - 1 ? "Ver resultado" : "Próxima pergunta";
+
+        const options = document.getElementById("quizOptions");
+        options.innerHTML = "";
+
+        question.options.forEach((option, index) => {
+            const button = document.createElement("button");
+            button.textContent = option;
+            button.className = "option";
+            button.style.display = "block";
+            button.onclick = () => checkAnswer(index);
+            options.appendChild(button);
+        });
+
+        answered = false;
+    }
+
+    function checkAnswer(index) {
+        if (answered) return;
+        answered = true;
+
+        const correct = quiz[questionIndex].correct === index;
+
+        if (correct) {
+            points++;
+            document.getElementById("feedback").textContent = "✅ Resposta correta!";
+        } else {
+            document.getElementById("feedback").textContent =
+                "❌ Resposta incorreta. A resposta certa é: " +
+                quiz[questionIndex].options[quiz[questionIndex].correct];
+        }
+    }
+
+    function nextQuestion() {
+        if (!answered) {
+            document.getElementById("feedback").textContent =
+                "Escolha uma resposta antes de continuar.";
+            return;
+        }
+
+        if (questionIndex < quiz.length - 1) {
+            questionIndex++;
+            showQuestion();
+        } else {
+            document.getElementById("quizQuestion").textContent =
+                "Quiz concluído!";
+            document.getElementById("quizOptions").innerHTML = "";
+            document.getElementById("quizProgress").textContent = "Resultado final";
+            document.getElementById("feedback").textContent =
+                `Você acertou ${points} de ${quiz.length} perguntas.`;
+            document.getElementById("score").textContent =
+                `Pontuação: ${Math.round(points / quiz.length * 100)}%`;
+            document.getElementById("nextButton").textContent = "Recomeçar";
+            document.getElementById("nextButton").onclick = restartQuiz;
+        }
+    }
+
+    function restartQuiz() {
+        questionIndex = 0;
+        points = 0;
+        document.getElementById("score").textContent = "";
+        document.getElementById("nextButton").onclick = nextQuestion;
+        showQuestion();
+    }
+
+    showFlashcard();
+    showQuestion();
+</script>
+
+</body>
+</html>
